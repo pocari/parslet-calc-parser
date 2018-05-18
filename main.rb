@@ -49,7 +49,11 @@ end
 class Interpreter < Parslet::Transform
   rule(number: simple(:x)) { NumericNode.new(x.to_s) }
   rule(left: simple(:x)) { x }
-  rule(left: simple(:l), op: simple(:op), right: simple(:r)) { BinOpNode.new(op, l, r) }
+  rule(
+    left: simple(:l),
+    op: simple(:op),
+    right: simple(:r)
+  ) { BinOpNode.new(op, l, r) }
 end
 
 begin
