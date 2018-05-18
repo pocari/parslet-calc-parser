@@ -46,7 +46,7 @@ BinOpNode = Struct.new(:op, :left, :right) do
   end
 end
 
-class Interpreter < Parslet::Transform
+class AstBuilder < Parslet::Transform
   rule(number: simple(:x)) { NumericNode.new(x.to_s) }
   rule(left: simple(:x)) { x }
   rule(
@@ -62,7 +62,7 @@ begin
   puts "========================== syntax tree"
   pp parsed
 
-  ast = Interpreter.new.apply(parsed)
+  ast = AstBuilder.new.apply(parsed)
   puts "========================== AST"
   pp ast
 
