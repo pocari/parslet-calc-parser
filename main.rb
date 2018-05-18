@@ -57,7 +57,11 @@ class AstBuilder < Parslet::Transform
 end
 
 begin
-  raw = '(1 + 2) * 3'
+  # raw = '(1 + 2) * 3'
+  raw = STDIN.read
+  puts "========================== raw input"
+  pp raw
+
   parsed = CalcParser.new.parse(raw)
   puts "========================== syntax tree"
   pp parsed
