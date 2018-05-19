@@ -95,9 +95,18 @@ class AstBuilder < Parslet::Transform
   # evalする際のコンテキストをクラスインスタンス変数で定義しておく
   @context = EvalContext.new
 
-  rule(number: simple(:x)) { NumericNode.new(x.to_s) }
-  rule(left: simple(:x)) { x }
-  rule(ident: simple(:x)) { |d| VariableNode.new(d[:x].to_s, @context) }
+  rule(number: simple(:x)) {
+    NumericNode.new(x.to_s)
+  }
+
+  rule(left: simple(:x)) {
+    x
+  }
+
+  rule(ident: simple(:x)) { |d|
+    VariableNode.new(d[:x].to_s, @context)
+  }
+
   rule(
     left: simple(:l),
     op: simple(:op),
@@ -111,6 +120,7 @@ class AstBuilder < Parslet::Transform
       BinOpNode.new(op, l, r)
     end
   }
+
   rule(program: sequence(:seq)) {
     ProgramNode.new(seq)
   }
