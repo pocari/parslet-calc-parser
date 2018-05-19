@@ -77,7 +77,6 @@ end
 
 VariableNode = Struct.new(:ident, :context) do
   def eval
-    # p [:variable_eval, context]
     unless context.variables.has_key?(ident)
       raise "#{ident} is not defined."
     end
