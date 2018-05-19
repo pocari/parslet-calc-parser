@@ -147,7 +147,6 @@ class AstBuilder < Parslet::Transform
   rule(funcall: subtree(:tree)) { |d|
     func = d[:tree][:ident]
     args = d[:tree][:args]
-    p [:funcall, d[:tree]]
     args = args.is_a?(Array) ? args : [args]
     FuncallNode.new(func.to_s, args, @context)
   }
@@ -178,21 +177,33 @@ class AstBuilder < Parslet::Transform
   }
 end
 
+def output_detail?
+  ENV['OUTPUT_DETAIL'] == '1'
+end
+
+def xputs(*args)
+  puts(*args) if output_detail?
+end
+
+def xpp(*args)
+  pp(*args) if output_detail?
+end
+
 begin
   # raw = '(1 + 2) * 3'
   raw = STDIN.read
-  puts "========================== raw input"
-  pp raw
+  xputs "========================== raw input"
+  xpp raw
 
   parsed = CalcParser.new.parse(raw)
-  puts "========================== syntax tree"
-  pp parsed
+  xputs "========================== syntax tree"
+  xpp parsed
 
   ast = AstBuilder.new.apply(parsed)
-  puts "========================== AST"
-  pp ast
+  xputs "========================== AST"
+  xpp ast
 
-  puts "========================== AST eval"
+  xputs "========================== AST eval"
   ast.eval
 rescue Parslet::ParseFailed => failure
   puts failure.parse_failure_cause.ascii_tree
