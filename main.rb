@@ -56,6 +56,10 @@ class EvalContext
       obj[name] = BuiltinFunctionNode.new(method(name))
     end
   end
+
+  def inspect
+    "#<EvalContext>"
+  end
 end
 
 NumericNode = Struct.new(:value) do
