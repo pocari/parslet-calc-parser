@@ -193,7 +193,7 @@ begin
   pp ast
 
   puts "========================== AST eval"
-  pp ast.eval
+  ast.eval
 rescue Parslet::ParseFailed => failure
   puts failure.parse_failure_cause.ascii_tree
   raise failure
