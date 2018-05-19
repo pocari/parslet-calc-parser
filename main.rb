@@ -8,16 +8,28 @@ class CalcParser < Parslet::Parser
     (expression >> (scolon | newline).maybe).repeat.as(:program)
   }
   rule(:expression) {
+    funcall.as(:funcall) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
   }
   rule(:term) { primary.as(:left) >> (term_op >> term.as(:right)).maybe }
 
-  rule(:primary) { number | (lparen >> expression >> rparen) | ident}
+  rule(:primary) {
+    number |
+    (lparen >> expression >> rparen) |
+    ident
+  }
   rule(:number) { (double | integer).as(:number) >> space?}
   rule(:double) { integer >> (str('.') >> match('\d').repeat(1)) }
   rule(:integer) { (match('[-+]').maybe >> match('[1-9]') >> match('\d').repeat) }
   rule(:ident) { (match('[_a-zA-Z]') >> match('[_a-zA-Z0-9]').repeat).as(:ident) >> space? }
+  rule(:funcall) {
+    ident >> lparen >> arg_list.as(:args) >> rparen
+  }
+  rule(:arg_list) {
+    (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe
+  }
+
 
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
@@ -29,14 +41,28 @@ class CalcParser < Parslet::Parser
   rule(:space?) { space.maybe }
 
   rule(:newline) { match('[\r\n]') }
-  rule(:scolon) { str(';') >> space }
+  rule(:scolon) { str(';') >> space? }
+  rule(:comma) { str(',') >> space? }
 end
 
 class EvalContext
   attr_reader :variables
+  attr_reader :functions
 
   def initialize
     @variables = {}
+    @functions = builtin_functions
+  end
+
+  BUILTIN_FUNCTION_NAMES = %w(
+    puts
+    print
+  )
+
+  def builtin_functions
+    BUILTIN_FUNCTION_NAMES.each.with_object({}) do |name, obj|
+      obj[name] = BuiltinFunctionNode.new(method(name))
+    end
   end
 end
 
@@ -46,13 +72,28 @@ NumericNode = Struct.new(:value) do
   end
 end
 
+BuiltinFunctionNode = Struct.new(:body) do
+  def apply(args)
+    body.call(*args.map(&:eval))
+  end
+end
+
 VariableNode = Struct.new(:ident, :context) do
   def eval
-    p [:variable_eval, context]
+    # p [:variable_eval, context]
     unless context.variables.has_key?(ident)
       raise "#{ident} is not defined."
     end
     context.variables[ident]
+  end
+end
+
+FuncallNode = Struct.new(:func, :args, :context) do
+  def eval
+    unless context.functions.has_key?(func)
+      raise "#{func} is not defined."
+    end
+    context.functions[func].apply(args)
   end
 end
 
@@ -95,14 +136,25 @@ class AstBuilder < Parslet::Transform
   # evalする際のコンテキストをクラスインスタンス変数で定義しておく
   @context = EvalContext.new
 
+  rule(left: simple(:x)) { x }
+  rule(arg: simple(:x)) { x }
+
   rule(number: simple(:x)) {
     NumericNode.new(x.to_s)
   }
 
-  rule(left: simple(:x)) {
-    x
+  rule(funcall: subtree(:tree)) { |d|
+    func = d[:tree][:ident]
+    args = d[:tree][:args]
+    p [:funcall, d[:tree]]
+    args = args.is_a?(Array) ? args : [args]
+    FuncallNode.new(func.to_s, args, @context)
   }
 
+  rule(args: subtree(:x)) {
+    p [:args, x]
+    x.is_a?(Array) ? x : [x]
+  }
   rule(ident: simple(:x)) { |d|
     VariableNode.new(d[:x].to_s, @context)
   }
@@ -112,7 +164,6 @@ class AstBuilder < Parslet::Transform
     op: simple(:op),
     right: simple(:r)
   ) { |d|
-    p [:test, @context]
     op, l, r = d[:op], d[:l], d[:r]
     if op == '='
       AssignNode.new(l, r, @context)
