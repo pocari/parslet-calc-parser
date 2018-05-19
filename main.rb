@@ -68,7 +68,8 @@ end
 
 NumericNode = Struct.new(:value) do
   def eval
-    BigDecimal(value)
+    # BigDecimal(value)
+    value.to_f
   end
 end
 
