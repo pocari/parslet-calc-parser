@@ -13,7 +13,6 @@ class CalcParser < Parslet::Parser
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
   }
   rule(:term) { primary.as(:left) >> (term_op >> term.as(:right)).maybe }
-
   rule(:primary) {
     number |
     (lparen >> expression >> rparen) |
@@ -30,16 +29,13 @@ class CalcParser < Parslet::Parser
     (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe
   }
 
-
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
   rule(:exp_op) { match('[-+]').as(:op) >> space? }
   rule(:term_op) { match('[*/]').as(:op) >> space? }
   rule(:asign_op) { str('=').as(:op) >> space? }
-
   rule(:space) { match('\s').repeat }
   rule(:space?) { space.maybe }
-
   rule(:newline) { match('[\r\n]') }
   rule(:scolon) { str(';') >> space? }
   rule(:comma) { str(',') >> space? }
