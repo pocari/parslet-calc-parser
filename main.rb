@@ -133,6 +133,7 @@ class AstBuilder < Parslet::Transform
   @context = EvalContext.new
 
   rule(left: simple(:x)) { x }
+
   rule(arg: simple(:x)) { x }
 
   rule(number: simple(:x)) {
@@ -146,10 +147,6 @@ class AstBuilder < Parslet::Transform
     FuncallNode.new(func.to_s, args, @context)
   }
 
-  rule(args: subtree(:x)) {
-    p [:args, x]
-    x.is_a?(Array) ? x : [x]
-  }
   rule(ident: simple(:x)) { |d|
     VariableNode.new(d[:x].to_s, @context)
   }
