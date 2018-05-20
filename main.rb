@@ -8,6 +8,7 @@ class CalcParser < Parslet::Parser
     (expression >> (scolon | newline).maybe).repeat.as(:program)
   }
   rule(:expression) {
+    fundef.as(:fundef) |
     funcall.as(:funcall) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
@@ -18,12 +19,16 @@ class CalcParser < Parslet::Parser
     (lparen >> expression >> rparen) |
     ident
   }
+  rule(:fundef) {
+    kdef >> ident >> lparen >> fundef_arg_list.as(:args) >> rparen >> (scolon | newline).maybe >> program.as(:body) >> kend
+  }
   rule(:number) { (double | integer).as(:number) >> space?}
   rule(:double) { integer >> (str('.') >> match('\d').repeat(1)) }
   rule(:integer) { (match('[-+]').maybe >> match('[1-9]') >> match('\d').repeat) }
-  rule(:ident) { (match('[_a-zA-Z]') >> match('[_a-zA-Z0-9]').repeat).as(:ident) >> space? }
-  rule(:funcall) { ident >> lparen >> arg_list.as(:args) >> rparen }
-  rule(:arg_list) { (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe }
+  rule(:ident) { reserved.absent? >> (match('[_a-zA-Z]') >> match('[_a-zA-Z0-9]').repeat).as(:ident) >> space? }
+  rule(:funcall) { ident >> lparen >> funcall_arg_list.as(:args) >> rparen }
+  rule(:funcall_arg_list) { (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe }
+  rule(:fundef_arg_list) { (ident.as(:arg) >> (comma >> ident).as(:arg).repeat).maybe }
 
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
@@ -35,11 +40,16 @@ class CalcParser < Parslet::Parser
   rule(:newline) { match('[\r\n]') }
   rule(:scolon) { str(';') >> space? }
   rule(:comma) { str(',') >> space? }
+  rule(:kdef) { str('def') >> space? }
+  rule(:kend) { str('end') >> space? }
+  rule(:reserved) {
+    kdef |
+    kend
+  }
 end
 
 class EvalContext
-  attr_reader :variables
-  attr_reader :functions
+  attr_accessor :variables, :functions
 
   def initialize
     @variables = {}
@@ -53,12 +63,8 @@ class EvalContext
 
   def builtin_functions
     BUILTIN_FUNCTION_NAMES.each.with_object({}) do |name, obj|
-      obj[name] = BuiltinFunctionNode.new(method(name))
+      obj[name] = BuiltinFunction.new(method(name))
     end
-  end
-
-  def inspect
-    "#<EvalContext>"
   end
 end
 
@@ -69,9 +75,26 @@ NumericNode = Struct.new(:value) do
   end
 end
 
-BuiltinFunctionNode = Struct.new(:body) do
+BuiltinFunction = Struct.new(:body) do
   def apply(args, context)
     body.call(*args.map{|e| e.eval(context)})
+  end
+end
+
+UserDefinedFunction = Struct.new(:name, :dargs, :body) do
+  def apply(args, context)
+    new_context = EvalContext.new
+    new_context.functions = context.functions
+    new_context.variables = context.variables.dup
+
+    if dargs.size != args.size
+      raise "UserDefinedFunction: #{name} wrong number of arguments (given #{args.size}, expected #{dargs.size})"
+    end
+
+    dargs.zip(args).each do |da, aa|
+      new_context.variables[da.ident] = aa.eval(context)
+    end
+    body.eval(new_context)
   end
 end
 
@@ -81,6 +104,12 @@ VariableNode = Struct.new(:ident) do
       raise "#{ident} is not defined."
     end
     context.variables[ident]
+  end
+end
+
+FundefNode = Struct.new(:func, :dargs, :body) do
+  def eval(context)
+    context.functions[func] = UserDefinedFunction.new(func, dargs, body)
   end
 end
 
@@ -135,6 +164,13 @@ class AstBuilder < Parslet::Transform
 
   rule(number: simple(:x)) {
     NumericNode.new(x.to_s)
+  }
+
+  rule(fundef: subtree(:tree)) {|d|
+    func = d[:tree][:ident]
+    args = d[:tree][:args]
+    body = d[:tree][:body]
+    FundefNode.new(func.to_s, args, body)
   }
 
   rule(funcall: subtree(:tree)) { |d|
