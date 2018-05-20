@@ -63,20 +63,20 @@ class EvalContext
 end
 
 NumericNode = Struct.new(:value) do
-  def eval
+  def eval(context)
     # BigDecimal(value)
     value.to_f
   end
 end
 
 BuiltinFunctionNode = Struct.new(:body) do
-  def apply(args)
-    body.call(*args.map(&:eval))
+  def apply(args, context)
+    body.call(*args.map{|e| e.eval(context)})
   end
 end
 
-VariableNode = Struct.new(:ident, :context) do
-  def eval
+VariableNode = Struct.new(:ident) do
+  def eval(context)
     unless context.variables.has_key?(ident)
       raise "#{ident} is not defined."
     end
@@ -84,26 +84,26 @@ VariableNode = Struct.new(:ident, :context) do
   end
 end
 
-FuncallNode = Struct.new(:func, :args, :context) do
-  def eval
+FuncallNode = Struct.new(:func, :args) do
+  def eval(context)
     unless context.functions.has_key?(func)
       raise "#{func} is not defined."
     end
-    context.functions[func].apply(args)
+    context.functions[func].apply(args, context)
   end
 end
 
-AssignNode = Struct.new(:var, :expression, :context) do
-  def eval
+AssignNode = Struct.new(:var, :expression) do
+  def eval(context)
     raise "invalid asign operation: #{var}" unless VariableNode === var
-    context.variables[var.ident] = expression.eval
+    context.variables[var.ident] = expression.eval(context)
   end
 end
 
 BinOpNode = Struct.new(:op, :left, :right) do
-  def eval
-    l = left.eval
-    r = right.eval
+  def eval(context)
+    l = left.eval(context)
+    r = right.eval(context)
     case op
     when '-'
       l - r
@@ -120,18 +120,15 @@ BinOpNode = Struct.new(:op, :left, :right) do
 end
 
 ProgramNode = Struct.new(:seq) do
-  def eval
+  def eval(context)
     # とりあえず最後のnodeのeval結果を返すようにしておく
     seq.inject(nil) do |acc, node|
-      node.eval
+      node.eval(context)
     end
   end
 end
 
 class AstBuilder < Parslet::Transform
-  # evalする際のコンテキストをクラスインスタンス変数で定義しておく
-  @context = EvalContext.new
-
   rule(left: simple(:x)) { x }
 
   rule(arg: simple(:x)) { x }
@@ -144,11 +141,11 @@ class AstBuilder < Parslet::Transform
     func = d[:tree][:ident]
     args = d[:tree][:args]
     args = args.is_a?(Array) ? args : [args]
-    FuncallNode.new(func.to_s, args, @context)
+    FuncallNode.new(func.to_s, args)
   }
 
   rule(ident: simple(:x)) { |d|
-    VariableNode.new(d[:x].to_s, @context)
+    VariableNode.new(d[:x].to_s)
   }
 
   rule(
@@ -158,7 +155,7 @@ class AstBuilder < Parslet::Transform
   ) { |d|
     op, l, r = d[:op], d[:l], d[:r]
     if op == '='
-      AssignNode.new(l, r, @context)
+      AssignNode.new(l, r)
     else
       BinOpNode.new(op, l, r)
     end
@@ -196,7 +193,7 @@ begin
   xpp ast
 
   xputs "========================== AST eval"
-  ast.eval
+  ast.eval(EvalContext.new)
 rescue Parslet::ParseFailed => failure
   puts failure.parse_failure_cause.ascii_tree
   raise failure
