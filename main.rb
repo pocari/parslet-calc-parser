@@ -10,6 +10,7 @@ class CalcParser < Parslet::Parser
   rule(:expression) {
     fundef.as(:fundef) |
     funcall.as(:funcall) |
+    if_exp.as(:if) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
   }
@@ -29,6 +30,7 @@ class CalcParser < Parslet::Parser
   rule(:funcall) { ident >> lparen >> funcall_arg_list.as(:args) >> rparen }
   rule(:funcall_arg_list) { (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe }
   rule(:fundef_arg_list) { (ident.as(:arg) >> (comma >> ident).as(:arg).repeat).maybe }
+  rule(:if_exp) { kif >> expression.as(:cond) >> (scolon | newline).maybe >> program.as(:true_body) >> kelse >> (scolon | newline).maybe >> program.as(:false_body) >> (scolon | newline).maybe >> kend }
 
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
@@ -42,9 +44,13 @@ class CalcParser < Parslet::Parser
   rule(:comma) { str(',') >> space? }
   rule(:kdef) { str('def') >> space? }
   rule(:kend) { str('end') >> space? }
+  rule(:kif) { str('if') >> space? }
+  rule(:kelse) { str('else') >> space? }
   rule(:reserved) {
     kdef |
-    kend
+    kend |
+    kif |
+    kelse
   }
 end
 
@@ -122,6 +128,16 @@ FuncallNode = Struct.new(:func, :args) do
   end
 end
 
+IfNode = Struct.new(:cond, :true_body, :false_body) do
+  def eval(context)
+    if cond.eval(context) != 0
+      true_body.eval(context)
+    else
+      false_body.eval(context)
+    end
+  end
+end
+
 AssignNode = Struct.new(:var, :expression) do
   def eval(context)
     raise "invalid asign operation: #{var}" unless VariableNode === var
@@ -178,6 +194,13 @@ class AstBuilder < Parslet::Transform
     args = d[:tree][:args]
     args = args.is_a?(Array) ? args : [args]
     FuncallNode.new(func.to_s, args)
+  }
+
+  rule(if: subtree(:tree)) { |d|
+    cond = d[:tree][:cond]
+    true_body = d[:tree][:true_body]
+    false_body = d[:tree][:false_body]
+    IfNode.new(cond, true_body, false_body)
   }
 
   rule(ident: simple(:x)) { |d|
