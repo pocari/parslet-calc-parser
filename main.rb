@@ -11,6 +11,7 @@ class CalcParser < Parslet::Parser
     fundef.as(:fundef) |
     funcall.as(:funcall) |
     if_exp.as(:if) |
+    while_exp.as(:while) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
   }
@@ -26,6 +27,7 @@ class CalcParser < Parslet::Parser
   rule(:if_exp) {
     kif >> expression.as(:cond) >> (scolon | newline).maybe >> program.as(:true_body) >> (kelse >> (scolon | newline).maybe >> program.as(:false_body) >> (scolon | newline).maybe).maybe >> kend
   }
+  rule(:while_exp) { kwhile >> expression.as(:cond) >> (scolon | newline).maybe >> program.as(:while_body) >> (scolon | newline).maybe >> kend }
   rule(:number) { (double | integer).as(:number) >> space?}
   rule(:double) { integer >> (str('.') >> match('\d').repeat(1)) }
   rule(:integer) { (match('[-+]').maybe >> (match('[1-9]') >> match('\d').repeat | match('\d'))  ) }
@@ -48,11 +50,13 @@ class CalcParser < Parslet::Parser
   rule(:kend) { str('end') >> space? }
   rule(:kif) { str('if') >> space? }
   rule(:kelse) { str('else') >> space? }
+  rule(:kwhile) { str('while') >> space? }
   rule(:reserved) {
     kdef |
     kend |
     kif |
-    kelse
+    kelse |
+    kwhile
   }
 end
 
@@ -140,6 +144,14 @@ IfNode = Struct.new(:cond, :true_body, :false_body) do
   end
 end
 
+WhileNode = Struct.new(:cond, :while_body) do
+  def eval(context)
+    while cond.eval(context) != 0
+      while_body.eval(context)
+    end
+  end
+end
+
 AssignNode = Struct.new(:var, :expression) do
   def eval(context)
     raise "invalid asign operation: #{var}" unless VariableNode === var
@@ -203,6 +215,12 @@ class AstBuilder < Parslet::Transform
     true_body = d[:tree][:true_body]
     false_body = d[:tree][:false_body]
     IfNode.new(cond, true_body, false_body)
+  }
+
+  rule(while: subtree(:tree)) { |d|
+    cond = d[:tree][:cond]
+    while_body = d[:tree][:while_body]
+    WhileNode.new(cond, while_body)
   }
 
   rule(ident: simple(:x)) { |d|
