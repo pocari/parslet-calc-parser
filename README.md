@@ -12,12 +12,23 @@
 
 # show sample
 % cat program.txt
-aaa = 1; bbb = 3
-ccc = (aaa + 2) + bbb
-puts(ccc + 1)
+def add(aaa, bbb)
+  x = (1 + 2) * 3
+  aaa + bbb + x
+end
+
+aaa = 1
+bbb = 3
+ccc = add((aaa + 2), bbb)
+
+puts(aaa)
+puts(bbb)
+puts(ccc)
 
 # run sampl
 % bundle exec ruby main.rb < program.txt
-7.0
+1.0
+3.0
+15.0
 ```
 
