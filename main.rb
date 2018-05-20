@@ -24,7 +24,7 @@ class CalcParser < Parslet::Parser
   }
   rule(:number) { (double | integer).as(:number) >> space?}
   rule(:double) { integer >> (str('.') >> match('\d').repeat(1)) }
-  rule(:integer) { (match('[-+]').maybe >> match('[1-9]') >> match('\d').repeat) }
+  rule(:integer) { (match('[-+]').maybe >> (match('[1-9]') >> match('\d').repeat | match('\d'))  ) }
   rule(:ident) { reserved.absent? >> (match('[_a-zA-Z]') >> match('[_a-zA-Z0-9]').repeat).as(:ident) >> space? }
   rule(:funcall) { ident >> lparen >> funcall_arg_list.as(:args) >> rparen }
   rule(:funcall_arg_list) { (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe }
