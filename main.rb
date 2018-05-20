@@ -23,6 +23,9 @@ class CalcParser < Parslet::Parser
   rule(:fundef) {
     kdef >> ident >> lparen >> fundef_arg_list.as(:args) >> rparen >> (scolon | newline).maybe >> program.as(:body) >> kend
   }
+  rule(:if_exp) {
+    kif >> expression.as(:cond) >> (scolon | newline).maybe >> program.as(:true_body) >> (kelse >> (scolon | newline).maybe >> program.as(:false_body) >> (scolon | newline).maybe).maybe >> kend
+  }
   rule(:number) { (double | integer).as(:number) >> space?}
   rule(:double) { integer >> (str('.') >> match('\d').repeat(1)) }
   rule(:integer) { (match('[-+]').maybe >> (match('[1-9]') >> match('\d').repeat | match('\d'))  ) }
@@ -30,7 +33,6 @@ class CalcParser < Parslet::Parser
   rule(:funcall) { ident >> lparen >> funcall_arg_list.as(:args) >> rparen }
   rule(:funcall_arg_list) { (expression.as(:arg) >> (comma >> expression).as(:arg).repeat).maybe }
   rule(:fundef_arg_list) { (ident.as(:arg) >> (comma >> ident).as(:arg).repeat).maybe }
-  rule(:if_exp) { kif >> expression.as(:cond) >> (scolon | newline).maybe >> program.as(:true_body) >> kelse >> (scolon | newline).maybe >> program.as(:false_body) >> (scolon | newline).maybe >> kend }
 
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
