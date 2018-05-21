@@ -8,15 +8,15 @@ class CalcParser < Parslet::Parser
     (expression >> (scolon | newline).maybe).repeat.as(:program)
   }
   rule(:expression) {
-    fundef.as(:fundef) |
-    funcall.as(:funcall) |
-    if_exp.as(:if) |
-    while_exp.as(:while) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
     (term.as(:left) >> (exp_op >> term.as(:right)).repeat).as(:terms)
   }
   rule(:term) { (primary.as(:left) >> (term_op >> primary.as(:right)).repeat).as(:primaries) }
   rule(:primary) {
+    fundef.as(:fundef) |
+    funcall.as(:funcall) |
+    if_exp.as(:if) |
+    while_exp.as(:while) |
     number |
     (lparen >> expression >> rparen) |
     ident
@@ -269,6 +269,7 @@ class AstBuilder < Parslet::Transform
     op, l, r = d[:op], d[:l], d[:r]
     # 今のところ左結合の二項演算はterms, primariesで処理されるので
     # ここに来るのは現状右結合のAssignNodeのみ
+    # 他にもきたらopで分岐
     AssignNode.new(l, r)
   }
 
