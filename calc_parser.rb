@@ -201,6 +201,11 @@ class AstBuilder < Parslet::Transform
     args = d[:tree][:args]
     body = d[:tree][:body]
     args = args.is_a?(Array) ? args : [args]
+    if args
+      args = args.is_a?(Array) ? args : [args]
+    else
+      args = []
+    end
     FundefNode.new(func.to_s, args, body)
   }
 
