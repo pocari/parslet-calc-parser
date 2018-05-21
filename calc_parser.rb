@@ -13,9 +13,9 @@ class CalcParser < Parslet::Parser
     if_exp.as(:if) |
     while_exp.as(:while) |
     ident.as(:left) >> asign_op >> expression.as(:right) |
-    term.as(:left) >> (exp_op >> expression.as(:right)).maybe
+    (term.as(:left) >> (exp_op >> term.as(:right)).repeat).as(:terms)
   }
-  rule(:term) { primary.as(:left) >> (term_op >> expression.as(:right)).maybe }
+  rule(:term) { (primary.as(:left) >> (term_op >> primary.as(:right)).repeat).as(:primaries) }
   rule(:primary) {
     number |
     (lparen >> expression >> rparen) |
@@ -196,6 +196,30 @@ class AstBuilder < Parslet::Transform
     NumericNode.new(x.to_s)
   }
 
+  rule(primaries: subtree(:tree)) {
+    if tree.is_a?(Array)
+      # 配列の場合は
+      # [一番左の値, [op=+, right=aza], [op=-, right=bbb]....]
+      # の形になっている
+      result = tree.inject {|left, right|
+        BinOpNode.new(right[:op], left, right[:right])
+      }
+      result
+    else
+      tree
+    end
+  }
+  rule(terms: subtree(:tree)) {
+    if tree.is_a?(Array)
+      result = tree.inject {|left, right|
+        BinOpNode.new(right[:op], left, right[:right])
+      }
+      result
+    else
+      tree
+    end
+  }
+
   rule(fundef: subtree(:tree)) {|d|
     func = d[:tree][:ident]
     args = d[:tree][:args]
@@ -243,11 +267,9 @@ class AstBuilder < Parslet::Transform
     right: simple(:r)
   ) { |d|
     op, l, r = d[:op], d[:l], d[:r]
-    if op == '='
-      AssignNode.new(l, r)
-    else
-      BinOpNode.new(op, l, r)
-    end
+    # 今のところ左結合の二項演算はterms, primariesで処理されるので
+    # ここに来るのは現状右結合のAssignNodeのみ
+    AssignNode.new(l, r)
   }
 
   rule(program: sequence(:seq)) {
