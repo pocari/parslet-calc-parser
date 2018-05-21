@@ -43,7 +43,7 @@ class CalcParser < Parslet::Parser
   rule(:asign_op) { str('=').as(:op) >> space? }
   rule(:space) { match('\s').repeat }
   rule(:space?) { space.maybe }
-  rule(:newline) { match('[\r\n]') }
+  rule(:newline) { match('[\r\n]').repeat(1) >> match('[ \t]').repeat }
   rule(:scolon) { str(';') >> space? }
   rule(:comma) { str(',') >> space? }
   rule(:kdef) { str('def') >> space? }
@@ -99,7 +99,6 @@ UserDefinedFunction = Struct.new(:name, :dargs, :body) do
     new_context.functions = context.functions
     new_context.variables = context.variables.dup
 
-    dargs = dargs || []
     if dargs.size != args.size
       raise "UserDefinedFunction: #{name} wrong number of arguments (given #{args.size}, expected #{dargs.size})"
     end
@@ -201,6 +200,7 @@ class AstBuilder < Parslet::Transform
     func = d[:tree][:ident]
     args = d[:tree][:args]
     body = d[:tree][:body]
+    args = args.is_a?(Array) ? args : [args]
     FundefNode.new(func.to_s, args, body)
   }
 
