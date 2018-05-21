@@ -15,7 +15,7 @@ class CalcParser < Parslet::Parser
     ident.as(:left) >> asign_op >> expression.as(:right) |
     term.as(:left) >> (exp_op >> expression.as(:right)).maybe
   }
-  rule(:term) { primary.as(:left) >> (term_op >> term.as(:right)).maybe }
+  rule(:term) { primary.as(:left) >> (term_op >> expression.as(:right)).maybe }
   rule(:primary) {
     number |
     (lparen >> expression >> rparen) |
