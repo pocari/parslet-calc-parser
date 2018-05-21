@@ -99,6 +99,7 @@ UserDefinedFunction = Struct.new(:name, :dargs, :body) do
     new_context.functions = context.functions
     new_context.variables = context.variables.dup
 
+    dargs = dargs || []
     if dargs.size != args.size
       raise "UserDefinedFunction: #{name} wrong number of arguments (given #{args.size}, expected #{dargs.size})"
     end
@@ -206,7 +207,11 @@ class AstBuilder < Parslet::Transform
   rule(funcall: subtree(:tree)) { |d|
     func = d[:tree][:ident]
     args = d[:tree][:args]
-    args = args.is_a?(Array) ? args : [args]
+    if args
+      args = args.is_a?(Array) ? args : [args]
+    else
+      args = []
+    end
     FuncallNode.new(func.to_s, args)
   }
 
